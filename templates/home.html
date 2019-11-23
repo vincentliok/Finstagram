@@ -1,0 +1,48 @@
+<html>
+<head>
+</head>
+<body>
+    
+<!--
+    
+<form action="/post" method="POST">
+	<h1>Welcome {{username}}</h1> 
+	<input type="text" name = "blog" placeholder="post" required/> </br>
+	<input type="submit" value = Post />
+</form>
+
+-->
+
+<h1>Welcome {{username}}</h1>
+
+<style type="text/css">
+	table, th, td{
+		border: 1px solid black;
+	}
+</style>
+
+Your Feed:
+
+<table>
+	<th>Photo ID</th>
+	<th>Poster</th>
+
+{% for line in posts %}
+	<tr>
+		<td>{{line.photoID}}</td>
+		<td>{{line.photoPoster}}</td>
+	</tr>
+{% endfor %}
+</table>
+
+<!--
+<a href="/select_blogger">Select a blogger</a>
+<br>
+-->
+
+<a href="/logout">Logout</a>
+
+</body>
+
+
+</html>
