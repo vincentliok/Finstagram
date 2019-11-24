@@ -2,7 +2,11 @@
 from flask import Flask, render_template, request, session, url_for, redirect
 import pymysql.cursors
 import hashlib
+import os
+import time
 SALT = "CS3083"
+IMAGES_DIR = os.path.join(os.getcwd(), "images")
+
 
 #Initialize the app from Flask
 app = Flask(__name__)
@@ -16,10 +20,39 @@ conn = pymysql.connect(host='localhost',
                        charset='utf8mb4',
                        cursorclass=pymysql.cursors.DictCursor)
 
-#Define a route to hello function
 @app.route('/')
 def hello():
     return render_template('index.html')
+
+#code for uploading image
+@app.route('/upload', methods=["GET"])
+
+def upload():
+    return render_template("upload.html")
+
+@app.route("/uploadImage", methods=["POST"])
+
+def upload_image():
+    if request.files:
+        image_file = request.files.get("imageToUpload", "")
+        image_name = image_file.filename
+        filepath = os.path.join(IMAGES_DIR, image_name)
+        print(filepath)
+        image_file.save(filepath)
+        query = "INSERT INTO Photo(postingdate, filepath, photoPoster, allFollowers, caption) VALUES (%s, %s, %s, %s, %s)"
+        cursor = conn.cursor()
+        print((time.strftime('%Y-%m-%d %H:%M:%S'), image_name, session['username']))
+        followerVisible = int(request.form['followerVisible'])
+        caption = request.form['caption']
+        cursor.execute(query, (time.strftime('%Y-%m-%d %H:%M:%S'), image_name, session['username'], followerVisible, caption))
+        conn.commit()
+        cursor.close()
+        message = "Image has been successfully uploaded."
+        return render_template("upload.html", message=message)
+    else:
+        message = "Failed to upload image."
+        return render_template("upload.html", message=message)
+
 
 #Define route for login
 @app.route('/login')
