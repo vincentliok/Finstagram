@@ -5,8 +5,7 @@ import hashlib
 import os
 import time
 SALT = "CS3083"
-IMAGES_DIR = os.path.join(os.getcwd(), "images")
-
+IMAGES_DIR = os.path.join(os.getcwd(), "static")
 
 #Initialize the app from Flask
 app = Flask(__name__)
@@ -124,12 +123,38 @@ def registerAuth():
 @app.route('/home')
 def home():
     user = session['username']
-    cursor = conn.cursor();
-    query = '(SELECT photoID, photoPoster FROM Photo NATURAL JOIN SharedWith NATURAL JOIN BelongTo WHERE member_username = %s ORDER BY postingdate DESC) UNION (SELECT photoID, photoPoster FROM Photo JOIN Follow ON photoPoster = username_followed WHERE username_follower = %s AND allFollowers = 1 ORDER BY postingdate DESC)'
+    #to find all visible photos
+    cursor = conn.cursor()
+    query = '(SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo NATURAL JOIN SharedWith NATURAL JOIN BelongTo WHERE member_username = %s) UNION (SELECT photoID, photoPoster,filepath, postingdate, caption FROM Photo JOIN Follow ON photoPoster = username_followed WHERE username_follower = %s AND allFollowers = 1) ORDER BY postingdate DESC'
     cursor.execute(query, (user, user))
     data = cursor.fetchall()
+
+    #to find data about all visible photos
+    photoInfo = []
+    for photo in data:
+        # print(photo['photoPoster'])
+        query = 'SELECT firstName,lastName FROM Photo JOIN Person ON photoPoster = username WHERE photoPoster = %s'
+        cursor.execute(query, (photo['photoPoster'] ))
+        photoInfo.append( cursor.fetchone() )
+
+    #to find tags for all visible photos
+    tags = []
+    for photo in data:
+        # print(photo['photoPoster'])
+        query = 'SELECT firstName,lastName, username FROM Photo NATURAL JOIN Tagged NATURAL JOIN Person WHERE photoID = %s'
+        cursor.execute(query, (photo['photoID'] ))
+        tags.append( cursor.fetchall() )
+
+    #find likes and rating
+    likes = []
+    for photo in data:
+        # print(photo['photoPoster'])
+        query = 'SELECT username,rating FROM Photo natural JOIN Likes WHERE photoID = %s'
+        cursor.execute(query, (photo['photoID'] ))
+        likes.append( cursor.fetchall() )
+
     cursor.close()
-    return render_template('home.html', username=user, posts=data)
+    return render_template('home.html', username=user, posts=data, photoInfo = photoInfo, tagged=tags, liked=likes)
 
 '''
 

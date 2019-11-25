@@ -26,11 +26,43 @@ Your Feed:
 <table>
 	<th>Photo ID</th>
 	<th>Poster</th>
+	<th>First Name</th>
+	<th>Last Name</th>
+	<th>Posted Date</th>
+	<th>Photo</th>
+	<th>Caption</th>
+	<th>Tagged</th>
+	<th>Liked & Rating</th>
 
-{% for line in posts %}
+{% for i in range(posts |length ) %}
 	<tr>
-		<td>{{line.photoID}}</td>
-		<td>{{line.photoPoster}}</td>
+		<td>{{posts[i].photoID}}</td>
+		<td>{{posts[i].photoPoster}}</td>
+		<td>{{photoInfo[i].firstName}}</td>
+		<td>{{photoInfo[i].lastName}}</td>
+		<td> {{posts[i].postingdate}}</td>
+		<td> <img src="{{url_for('static', filename=posts[i].filepath)}}" style="width:250px;height:250px"> </td>
+		<td>{{posts[i].caption}}</td>
+		<td>
+			<ol>
+				{% for person in tagged[i] %}
+				{% if person is not none %}
+					<li>{{person['firstName'] }} , {{person['lastName'] }} , {{person['username'] }}</li>
+				{%endif%}
+				{% endfor %}
+			</ol>
+		</td>
+
+		<td>
+			<ol>
+				{% for person in liked[i] %}
+				{% if person is not none %}
+					<li>{{person['username'] }} rated {{person['rating'] }}</li>
+				{%endif%}
+				{% endfor %}
+			</ol>
+		</td>
+
 	</tr>
 {% endfor %}
 </table>
