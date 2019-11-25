@@ -25,7 +25,6 @@ def hello():
 
 #code for uploading image
 @app.route('/upload', methods=["GET"])
-
 def upload():
     return render_template("upload.html")
 
@@ -125,8 +124,8 @@ def home():
     user = session['username']
     #to find all visible photos
     cursor = conn.cursor()
-    query = '(SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo NATURAL JOIN SharedWith NATURAL JOIN BelongTo WHERE member_username = %s) UNION (SELECT photoID, photoPoster,filepath, postingdate, caption FROM Photo JOIN Follow ON photoPoster = username_followed WHERE username_follower = %s AND allFollowers = 1) ORDER BY postingdate DESC'
-    cursor.execute(query, (user, user))
+    query = '(SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo WHERE photoPoster = %s) UNION (SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo NATURAL JOIN SharedWith NATURAL JOIN BelongTo WHERE member_username = %s) UNION (SELECT photoID, photoPoster,filepath, postingdate, caption FROM Photo JOIN Follow ON photoPoster = username_followed WHERE username_follower = %s AND allFollowers = 1) ORDER BY postingdate DESC'
+    cursor.execute(query, (user, user, user))
     data = cursor.fetchall()
 
     #to find data about all visible photos
