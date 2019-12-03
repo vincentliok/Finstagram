@@ -1,7 +1,7 @@
 <html>
 <head>
 </head>
-<body>
+<a>
     
 <!--
     
@@ -15,11 +15,17 @@
 
 <h1>Welcome {{username}}</h1>
 
+	<a href="/logout">Logout</a>
+	<a href="/upload">Upload Image</a>
+	<a href="/manageFollows">Manage Follows</a>
+	<br>
+
 <style type="text/css">
 	table, th, td{
 		border: 1px solid black;
 	}
 </style>
+	<br>
 
 Your Feed:
 
@@ -31,7 +37,8 @@ Your Feed:
 	<th>Posted Date</th>
 	<th>Photo</th>
 	<th>Caption</th>
-	<th>Tagged</th>
+	<th>Tags</th>
+	<th>Tag Request:</th>
 	<th>Liked & Rating</th>
 
 {% for i in range(posts |length ) %}
@@ -45,12 +52,49 @@ Your Feed:
 		<td>{{posts[i].caption}}</td>
 		<td>
 			<ol>
+				{#  {% set selfTagged = [] %} #}
 				{% for person in tagged[i] %}
 				{% if person is not none %}
-					<li>{{person['firstName'] }} , {{person['lastName'] }} , {{person['username'] }}</li>
+					<li>{{person['username'] }}: {{person['firstName'] }} {{person['lastName'] }}</li>
+					<!--if user already in tagged, cant selftag-->
+				{#
+				{% if person['username'] == username %}
+						{% set _ = selfTagged.append(1) %}
+					{%endif%}
+				#}
+
 				{%endif%}
 				{% endfor %}
 			</ol>
+
+			<form action="/tagUser" style="text-align:center;" method="POST">
+				<input type="text" style="text-align:center;" name = "username" placeholder="username" required/> </br>
+				<button name = "tag" type="submit" value = {{posts[i].photoID}} >Tag User</button>
+			</form>
+
+				<p>{{p}}</p>
+			    {% if message and photoID | int == posts[i].photoID | int %}
+					<p style="text-align:center;"> {{ message }} </p>
+				{% endif %}
+
+		</td>
+
+		<td>
+			{% if tagRequests[i] is not none %}
+			<section style="text-align:center;">
+						<p> Someone has tagged you </p>
+							<form action="/acceptTag" method="POST">
+								<button name = 'accept' type="submit" value = {{posts[i].photoID}}>Accept Tag</button>
+							</form>
+
+							<form action="/DeclineTag" method="POST">
+								<button name = 'decline' type="submit" value = {{posts[i].photoID}}>Decline Tag</button>
+							</form>
+			</section>
+			{%endif%}
+			{% if tagMessage and photoID | int == posts[i].photoID | int %}
+			<p>{{tagMessage}}</p>
+			{%endif%}
 		</td>
 
 		<td>
@@ -63,6 +107,9 @@ Your Feed:
 			</ol>
 		</td>
 
+
+
+
 	</tr>
 {% endfor %}
 </table>
@@ -71,9 +118,6 @@ Your Feed:
 <a href="/select_blogger">Select a blogger</a>
 <br>
 -->
-
-<a href="/logout">Logout</a>
-<a href="/upload">Upload Image</a>
 
 </body>
 

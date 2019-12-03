@@ -29,7 +29,6 @@ def upload():
     return render_template("upload.html")
 
 @app.route("/uploadImage", methods=["POST"])
-
 def upload_image():
     if request.files:
         image_file = request.files.get("imageToUpload", "")
@@ -95,6 +94,8 @@ def loginAuth():
 def registerAuth():
     #grabs information from the forms
     username = request.form['username']
+    firstName = request.form['firstName']
+    lastName = request.form['lastName']
     password = request.form['password'] + SALT
     hashed_password = hashlib.sha256(password.encode('utf-8')).hexdigest()
 
@@ -112,8 +113,8 @@ def registerAuth():
         error = "This user already exists"
         return render_template('register.html', error = error)
     else:
-        ins = 'INSERT INTO Person(username, password) VALUES(%s, %s)'
-        cursor.execute(ins, (username, hashed_password))
+        ins = 'INSERT INTO Person(username, password,firstName,lastName) VALUES(%s, %s, %s, %s)'
+        cursor.execute(ins, (username, hashed_password, firstName,lastName))
         conn.commit()
         cursor.close()
         return render_template('index.html')
@@ -124,7 +125,7 @@ def home():
     user = session['username']
     #to find all visible photos
     cursor = conn.cursor()
-    query = '(SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo WHERE photoPoster = %s) UNION (SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo NATURAL JOIN SharedWith NATURAL JOIN BelongTo WHERE member_username = %s) UNION (SELECT photoID, photoPoster,filepath, postingdate, caption FROM Photo JOIN Follow ON photoPoster = username_followed WHERE username_follower = %s AND allFollowers = 1) ORDER BY postingdate DESC'
+    query = '(SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo WHERE photoPoster = %s) UNION (SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo NATURAL JOIN SharedWith NATURAL JOIN BelongTo WHERE member_username = %s) UNION (SELECT photoID, photoPoster,filepath, postingdate, caption FROM Photo JOIN Follow ON photoPoster = username_followed WHERE username_follower = %s AND followstatus = 1) ORDER BY postingdate DESC'
     cursor.execute(query, (user, user, user))
     data = cursor.fetchall()
 
@@ -140,7 +141,7 @@ def home():
     tags = []
     for photo in data:
         # print(photo['photoPoster'])
-        query = 'SELECT firstName,lastName, username FROM Photo NATURAL JOIN Tagged NATURAL JOIN Person WHERE photoID = %s'
+        query = 'SELECT firstName,lastName, username FROM Photo NATURAL JOIN Tagged NATURAL JOIN Person WHERE photoID = %s AND tagstatus = 1'
         cursor.execute(query, (photo['photoID'] ))
         tags.append( cursor.fetchall() )
 
@@ -152,8 +153,464 @@ def home():
         cursor.execute(query, (photo['photoID'] ))
         likes.append( cursor.fetchall() )
 
+    # for tag requests, should only have max of 1 tag per photo
+    tagRequests = []
+    for photo in data:
+        query = 'SELECT * FROM Tagged WHERE photoID = %s AND tagstatus = 0 AND username = %s'
+        cursor.execute(query, (photo['photoID'], user))
+        # jinja loop in home.html loops through index so we need something even if result returns none
+        tagRequests.append(cursor.fetchone())
+
+
     cursor.close()
-    return render_template('home.html', username=user, posts=data, photoInfo = photoInfo, tagged=tags, liked=likes)
+    return render_template('home.html', username=user, posts=data, photoInfo = photoInfo, tagged=tags, liked=likes, tagRequests=tagRequests)
+
+@app.route('/tagUser', methods=['GET', 'POST'])
+def tag():
+    user = session['username']
+    cursor = conn.cursor()
+
+    try:
+        username = request.form['username']
+        photoID = request.form['tag']
+        #check userID is valid
+
+        query = 'SELECT * FROM Person WHERE username = %s'
+        cursor.execute(query, (username))
+        data = cursor.fetchone()
+    except:
+        pass
+
+    #if username valid, check if username already been tagged
+    if data:
+        query = 'SELECT * FROM Tagged WHERE username = %s AND photoID = %s'
+        cursor.execute(query, (username,photoID))
+        result = cursor.fetchone()
+        # if username has already been tagged, respond with message
+        if result:
+            if result['tagstatus']:
+                message = 'User has already been tagged'
+            else:
+                message = 'Request is still pending from user'
+
+
+                # queries to load homepage with loaded photos
+                query = '(SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo WHERE photoPoster = %s) UNION (SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo NATURAL JOIN SharedWith NATURAL JOIN BelongTo WHERE member_username = %s) UNION (SELECT photoID, photoPoster,filepath, postingdate, caption FROM Photo JOIN Follow ON photoPoster = username_followed WHERE username_follower = %s AND followstatus = 1) ORDER BY postingdate DESC'
+                cursor.execute(query, (user, user, user))
+                data = cursor.fetchall()
+
+                # to find data about all visible photos
+                photoInfo = []
+                for photo in data:
+                    # print(photo['photoPoster'])
+                    query = 'SELECT firstName,lastName FROM Photo JOIN Person ON photoPoster = username WHERE photoPoster = %s'
+                    cursor.execute(query, (photo['photoPoster']))
+                    photoInfo.append(cursor.fetchone())
+
+                # to find tags for all visible photos
+                tags = []
+                for photo in data:
+                    # print(photo['photoPoster'])
+                    query = 'SELECT firstName,lastName, username FROM Photo NATURAL JOIN Tagged NATURAL JOIN Person WHERE photoID = %s AND tagstatus = 1'
+                    cursor.execute(query, (photo['photoID']))
+                    tags.append(cursor.fetchall())
+
+                # find likes and rating
+                likes = []
+                for photo in data:
+                    # print(photo['photoPoster'])
+                    query = 'SELECT username,rating FROM Photo natural JOIN Likes WHERE photoID = %s'
+                    cursor.execute(query, (photo['photoID']))
+                    likes.append(cursor.fetchall())
+
+                # for tag requests, should only have max of 1 tag per photo
+                tagRequests = []
+                for photo in data:
+                    query = 'SELECT * FROM Tagged WHERE photoID = %s AND tagstatus = 0 AND username = %s'
+                    cursor.execute(query, (photo['photoID'], user))
+                    # jinja loop in home.html loops through index so we need something even if result returns none
+                    tagRequests.append(cursor.fetchone())
+
+                cursor.close()
+                return render_template('home.html', username=user, posts=data, photoInfo=photoInfo, tagged=tags,
+                                       liked=likes, tagRequests=tagRequests, photoID=photoID)
+
+        #user not already tagged
+        else:
+            #if it is self-tag, simply insert with tagstatus = 1
+            if username == user:
+                query = 'INSERT INTO Tagged(username, photoID ,tagstatus) VALUES (%s, %s, %s)'
+                cursor.execute(query, (username, photoID, 1))
+                conn.commit()
+                message = "You've tagged yourself"
+
+
+                # queries to load homepage with loaded photos
+                query = '(SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo WHERE photoPoster = %s) UNION (SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo NATURAL JOIN SharedWith NATURAL JOIN BelongTo WHERE member_username = %s) UNION (SELECT photoID, photoPoster,filepath, postingdate, caption FROM Photo JOIN Follow ON photoPoster = username_followed WHERE username_follower = %s AND followstatus = 1) ORDER BY postingdate DESC'
+                cursor.execute(query, (user, user, user))
+                data = cursor.fetchall()
+
+                # to find data about all visible photos
+                photoInfo = []
+                for photo in data:
+                    # print(photo['photoPoster'])
+                    query = 'SELECT firstName,lastName FROM Photo JOIN Person ON photoPoster = username WHERE photoPoster = %s'
+                    cursor.execute(query, (photo['photoPoster']))
+                    photoInfo.append(cursor.fetchone())
+
+                # to find tags for all visible photos
+                tags = []
+                for photo in data:
+                    # print(photo['photoPoster'])
+                    query = 'SELECT firstName,lastName, username FROM Photo NATURAL JOIN Tagged NATURAL JOIN Person WHERE photoID = %s AND tagstatus = 1'
+                    cursor.execute(query, (photo['photoID']))
+                    tags.append(cursor.fetchall())
+
+                # find likes and rating
+                likes = []
+                for photo in data:
+                    # print(photo['photoPoster'])
+                    query = 'SELECT username,rating FROM Photo natural JOIN Likes WHERE photoID = %s'
+                    cursor.execute(query, (photo['photoID']))
+                    likes.append(cursor.fetchall())
+
+                # for tag requests, should only have max of 1 tag per photo
+                tagRequests = []
+                for photo in data:
+                    query = 'SELECT * FROM Tagged WHERE photoID = %s AND tagstatus = 0 AND username = %s'
+                    cursor.execute(query, (photo['photoID'], user))
+                    # jinja loop in home.html loops through index so we need something even if result returns none
+                    tagRequests.append(cursor.fetchone())
+
+                cursor.close()
+                return render_template('home.html', username=user, posts=data, photoInfo=photoInfo, tagged=tags,
+                                       liked=likes, tagRequests=tagRequests, photoID=photoID)
+
+            #if not self-tag, check if user can see the photoID
+            #get all visible photos the searched user can see
+            query = '(SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo WHERE photoPoster = %s) UNION (SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo NATURAL JOIN SharedWith NATURAL JOIN BelongTo WHERE member_username = %s) UNION (SELECT photoID, photoPoster,filepath, postingdate, caption FROM Photo JOIN Follow ON photoPoster = username_followed WHERE username_follower = %s AND followstatus = 1) ORDER BY postingdate DESC'
+            cursor.execute(query, (username, username, username))
+            photos = cursor.fetchall()
+            photoIDs = {}
+            for photo in photos:
+                id = photo['photoID']
+                photoIDs[id] = id
+
+            # if photoID is in visible photos
+            if int(photoID) in photoIDs:
+                # make a tag requesdt to user with tagstatus = 0
+                query = 'INSERT INTO Tagged(username, photoID ,tagstatus) VALUES (%s, %s, %s)'
+                cursor.execute(query, (username, photoID, 0))
+                conn.commit()
+                message = "Tag request have been sent."
+
+            #user cant see the image.Thus error
+            else:
+                message = "Invalid tag request"
+
+                # queries to load homepage with loaded photos
+
+                query = '(SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo WHERE photoPoster = %s) UNION (SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo NATURAL JOIN SharedWith NATURAL JOIN BelongTo WHERE member_username = %s) UNION (SELECT photoID, photoPoster,filepath, postingdate, caption FROM Photo JOIN Follow ON photoPoster = username_followed WHERE username_follower = %s AND followstatus = 1) ORDER BY postingdate DESC'
+                cursor.execute(query, (user, user, user))
+                data = cursor.fetchall()
+
+                # to find data about all visible photos
+                photoInfo = []
+                for photo in data:
+                    # print(photo['photoPoster'])
+                    query = 'SELECT firstName,lastName FROM Photo JOIN Person ON photoPoster = username WHERE photoPoster = %s'
+                    cursor.execute(query, (photo['photoPoster']))
+                    photoInfo.append(cursor.fetchone())
+
+                # to find tags for all visible photos
+                tags = []
+                for photo in data:
+                    # print(photo['photoPoster'])
+                    query = 'SELECT firstName,lastName, username FROM Photo NATURAL JOIN Tagged NATURAL JOIN Person WHERE photoID = %s AND tagstatus = 1'
+                    cursor.execute(query, (photo['photoID']))
+                    tags.append(cursor.fetchall())
+
+                # find likes and rating
+                likes = []
+                for photo in data:
+                    # print(photo['photoPoster'])
+                    query = 'SELECT username,rating FROM Photo natural JOIN Likes WHERE photoID = %s'
+                    cursor.execute(query, (photo['photoID']))
+                    likes.append(cursor.fetchall())
+
+                # for tag requests, should only have max of 1 tag per photo
+                tagRequests = []
+                for photo in data:
+                    query = 'SELECT * FROM Tagged WHERE photoID = %s AND tagstatus = 0 AND username = %s'
+                    cursor.execute(query, (photo['photoID'], user))
+                    # jinja loop in home.html loops through index so we need something even if result returns none
+                    tagRequests.append(cursor.fetchone())
+
+                cursor.close()
+                return render_template('home.html', username=user, posts=data, photoInfo=photoInfo, tagged=tags,
+                                       liked=likes, tagRequests=tagRequests, photoID=photoID)
+
+@app.route('/acceptTag', methods=['GET', 'POST'])
+def acceptTag():
+    user = session['username']
+    cursor = conn.cursor()
+    tagMessage=''
+    photoID =''
+    try:
+        photoID = request.form['accept']
+        #update tagstatus based on accepted photoID
+        cursor = conn.cursor()
+
+        query = 'UPDATE Tagged SET tagstatus = 1 WHERE Tagged.username = %s AND Tagged.photoID = %s'
+        cursor.execute(query, (user, photoID))
+        tagMessage = "You've accepted to be tagged"
+        conn.commit()
+    except:
+        pass
+
+    #queries to load homepage with loaded photos
+
+    query = '(SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo WHERE photoPoster = %s) UNION (SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo NATURAL JOIN SharedWith NATURAL JOIN BelongTo WHERE member_username = %s) UNION (SELECT photoID, photoPoster,filepath, postingdate, caption FROM Photo JOIN Follow ON photoPoster = username_followed WHERE username_follower = %s AND followstatus = 1) ORDER BY postingdate DESC'
+    cursor.execute(query, (user, user, user))
+    data = cursor.fetchall()
+
+    #to find data about all visible photos
+    photoInfo = []
+    for photo in data:
+        # print(photo['photoPoster'])
+        query = 'SELECT firstName,lastName FROM Photo JOIN Person ON photoPoster = username WHERE photoPoster = %s'
+        cursor.execute(query, (photo['photoPoster'] ))
+        photoInfo.append( cursor.fetchone() )
+
+    #to find tags for all visible photos
+    tags = []
+    for photo in data:
+        # print(photo['photoPoster'])
+        query = 'SELECT firstName,lastName, username FROM Photo NATURAL JOIN Tagged NATURAL JOIN Person WHERE photoID = %s AND tagstatus = 1'
+        cursor.execute(query, (photo['photoID'] ))
+        tags.append( cursor.fetchall() )
+
+    #find likes and rating
+    likes = []
+    for photo in data:
+        # print(photo['photoPoster'])
+        query = 'SELECT username,rating FROM Photo natural JOIN Likes WHERE photoID = %s'
+        cursor.execute(query, (photo['photoID'] ))
+        likes.append( cursor.fetchall() )
+
+    # for tag requests, should only have max of 1 tag per photo
+    tagRequests = []
+    for photo in data:
+        query = 'SELECT * FROM Tagged WHERE photoID = %s AND tagstatus = 0 AND username = %s'
+        cursor.execute(query, (photo['photoID'], user))
+        # jinja loop in home.html loops through index so we need something even if result returns none
+        tagRequests.append(cursor.fetchone())
+
+    cursor.close()
+    return render_template('home.html', username=user, posts=data, photoInfo = photoInfo, tagged=tags, liked=likes, tagRequests=tagRequests, tagMessage=tagMessage, photoID=photoID)
+
+@app.route('/DeclineTag', methods=['GET', 'POST'])
+def declineTag():
+    user = session['username']
+    cursor = conn.cursor()
+    tagMessage=''
+    photoID = ''
+    try:
+        photoID = request.form['decline']
+        #update tagstatus based on accepted photoID
+        cursor = conn.cursor()
+
+        #delete request by deleting entry in tagged
+        query = 'DELETE FROM Tagged WHERE Tagged.username = %s AND Tagged.photoID = %s '
+        cursor.execute(query, (user, photoID))
+        tagMessage = "You've rejected to be tagged"
+        conn.commit()
+    except:
+        pass
+
+    #queries to load homepage with loaded photos
+
+    query = '(SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo WHERE photoPoster = %s) UNION (SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo NATURAL JOIN SharedWith NATURAL JOIN BelongTo WHERE member_username = %s) UNION (SELECT photoID, photoPoster,filepath, postingdate, caption FROM Photo JOIN Follow ON photoPoster = username_followed WHERE username_follower = %s AND followstatus = 1) ORDER BY postingdate DESC'
+    cursor.execute(query, (user, user, user))
+    data = cursor.fetchall()
+
+    #to find data about all visible photos
+    photoInfo = []
+    for photo in data:
+        # print(photo['photoPoster'])
+        query = 'SELECT firstName,lastName FROM Photo JOIN Person ON photoPoster = username WHERE photoPoster = %s'
+        cursor.execute(query, (photo['photoPoster'] ))
+        photoInfo.append( cursor.fetchone() )
+
+    #to find tags for all visible photos
+    tags = []
+    for photo in data:
+        # print(photo['photoPoster'])
+        query = 'SELECT firstName,lastName, username FROM Photo NATURAL JOIN Tagged NATURAL JOIN Person WHERE photoID = %s AND tagstatus = 1'
+        cursor.execute(query, (photo['photoID'] ))
+        tags.append( cursor.fetchall() )
+
+    #find likes and rating
+    likes = []
+    for photo in data:
+        # print(photo['photoPoster'])
+        query = 'SELECT username,rating FROM Photo natural JOIN Likes WHERE photoID = %s'
+        cursor.execute(query, (photo['photoID'] ))
+        likes.append( cursor.fetchall() )
+
+    # for tag requests, should only have max of 1 tag per photo
+    tagRequests = []
+    for photo in data:
+        query = 'SELECT * FROM Tagged WHERE photoID = %s AND tagstatus = 0 AND username = %s'
+        cursor.execute(query, (photo['photoID'], user))
+        # jinja loop in home.html loops through index so we need something even if result returns none
+        tagRequests.append(cursor.fetchone())
+
+    cursor.close()
+    return render_template('home.html', username=user, posts=data, photoInfo = photoInfo, tagged=tags, liked=likes, tagRequests=tagRequests, tagMessage=tagMessage, photoID=photoID)
+
+
+@app.route('/manageFollows')
+def follow():
+    #search for all follow requests
+
+    user = session['username']
+    cursor = conn.cursor()
+    query = 'SELECT * FROM Follow WHERE username_followed = %s AND followstatus = 0'
+    cursor.execute(query, (user))
+    data = cursor.fetchall()
+    requests = []
+    for i in data:
+        requests.append(i['username_follower'])
+    cursor.close()
+
+    return render_template('follows.html',requests=requests)
+
+@app.route('/acceptFollow', methods=['GET','POST'])
+def accept():
+    user = session['username']
+    cursor = conn.cursor()
+    message = ''
+
+    try:
+        username = request.form['accept']
+
+        #update followStatus based in accepted username
+        cursor = conn.cursor()
+        query = 'UPDATE Follow SET followstatus = 1 WHERE Follow.username_followed = %s AND Follow.username_follower = %s'
+        cursor.execute(query, (user, username))
+        message = "You've accepted {} as a follower".format(username)
+        conn.commit()
+    except:
+        pass
+    # query for follow requests
+    user = session['username']
+    cursor = conn.cursor()
+    query = 'SELECT * FROM Follow WHERE username_followed = %s AND followstatus = 0'
+    cursor.execute(query, (user))
+    data = cursor.fetchall()
+    requests = []
+    for i in data:
+        requests.append(i['username_follower'])
+    cursor.close()
+
+    return render_template('follows.html', requests=requests,message=message)
+
+@app.route('/DeclineFollow', methods=['GET','POST'])
+def decline():
+    user = session['username']
+    message = ''
+    try:
+        username = request.form['decline']
+
+        #delete request from follow table
+        cursor = conn.cursor()
+        query = 'DELETE FROM Follow WHERE Follow.username_followed = %s AND Follow.username_follower = %s '
+        cursor.execute(query, (user, username))
+        message = "You've rejected {} as follower".format(username)
+        conn.commit()
+    except:
+        cursor = conn.cursor()
+
+
+    # query for follow requests
+    user = session['username']
+    cursor = conn.cursor()
+    query = 'SELECT * FROM Follow WHERE username_followed = %s AND followstatus = 0'
+    cursor.execute(query, (user))
+    data = cursor.fetchall()
+    requests = []
+    for i in data:
+        requests.append(i['username_follower'])
+    cursor.close()
+
+    return render_template('follows.html', requests=requests,message=message)
+
+
+#manage follow page
+@app.route('/findID', methods=['GET', 'POST'])
+def findID():
+    user = session['username']
+    username = request.form['username']
+    cursor = conn.cursor()
+
+    #find if searched user exists
+    query = 'SELECT * FROM Person WHERE username = %s'
+    cursor.execute(query, (username))
+    data = cursor.fetchone()
+    if (data):
+        # if userID exists, search if there is already an follow request or already following
+
+        query = 'SELECT * FROM Follow WHERE username_followed = %s AND username_follower = %s'
+        cursor.execute(query, (username,user))
+        result = cursor.fetchone()
+        if result:
+            # different message depending if user has accepted request
+            if result['followstatus']:
+                message = "You've already followed this user"
+            else:
+                message = 'Request is still pending from user'
+        else:
+            # if no entry in the follow table, submit an follow request with followStatus = 0
+            query = 'INSERT INTO Follow(username_followed, username_follower ,followstatus) VALUES (%s, %s, %s)'
+            cursor.execute(query, (username,user,0))
+            conn.commit()
+            message = "Follow request have been sent."
+
+        #query for follow requests
+        user = session['username']
+        cursor = conn.cursor()
+        query = 'SELECT * FROM Follow WHERE username_followed = %s AND followstatus = 0'
+        cursor.execute(query, (user))
+        data = cursor.fetchall()
+        requests = []
+        for i in data:
+            requests.append(i['username_follower'])
+        cursor.close()
+
+        return render_template('follows.html',message=message, requests=requests)
+
+    #if userid don't exist, return error
+    else:
+
+        #query for follow requests
+        user = session['username']
+        cursor = conn.cursor()
+        query = 'SELECT * FROM Follow WHERE username_followed = %s AND followstatus = 0'
+        cursor.execute(query, (user))
+        data = cursor.fetchall()
+        requests = []
+        for i in data:
+            requests.append(i['username_follower'])
+
+        cursor.close()
+        error = "This user does not exist"
+        return render_template('follows.html',error=error, requests=requests)
+
+
+
+
+
 
 '''
 
