@@ -40,6 +40,7 @@ Your Feed:
 	<th>Tags</th>
 	<th>Tag Request:</th>
 	<th>Liked & Rating</th>
+    <th>Comments</th>
 
 {% for i in range(posts |length ) %}
 	<tr>
@@ -105,10 +106,39 @@ Your Feed:
 				{%endif%}
 				{% endfor %}
 			</ol>
+            <br>
+            {% if not userlike[i] %}
+            <form action="/rate" method="POST">
+                <select name="ratings">
+                    <option value=1>1</option>
+                    <option value=2>2</option>
+                    <option value=3>3</option>
+                    <option value=4>4</option>
+                    <option value=5>5</option>
+                </select>
+                <button name="submitRating" type="submit" value={{posts[i].photoID}}>Submit Rating</button>
+            </form>
+            {% else %}
+            <form action="/removeRating" method="POST">
+                <button name="removeRating" type="submit" value={{posts[i].photoID}}>Remove Rating</button>
+            </form>
+            {%endif%}
 		</td>
 
-
-
+        <td>
+            <ol>
+                {% for comment in comments[i] %}
+                {% if comment is not none %}
+                    <li>On {{comment['commentTime'] }}, {{comment['username'] }} said {{comment['comment'] }}</li>
+                {%endif%}
+                {% endfor %}
+            </ol>
+            <br>
+            <form action="/postComment" style="text-align:center;" method="POST">
+                <input type="text" style="text-align:center;" name = "comment" placeholder="Add a comment..." required/> </br>
+                <button name = "submitComment" type="submit" value = {{posts[i].photoID}} >Post Comment</button>
+            </form>
+        </td>
 
 	</tr>
 {% endfor %}

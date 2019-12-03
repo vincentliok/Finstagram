@@ -149,9 +149,19 @@ def home():
     likes = []
     for photo in data:
         # print(photo['photoPoster'])
-        query = 'SELECT username,rating FROM Photo natural JOIN Likes WHERE photoID = %s'
+        query = 'SELECT username,rating FROM Likes WHERE photoID = %s'
         cursor.execute(query, (photo['photoID'] ))
         likes.append( cursor.fetchall() )
+        
+    userlike = []
+    for photo in data:
+        query = 'SELECT username,rating FROM Likes WHERE photoID = %s AND username = %s'
+        cursor.execute(query, (photo['photoID'], user))
+        userlikedata = cursor.fetchone()
+        if (userlikedata):
+            userlike.append(1)
+        else:
+            userlike.append(0)
 
     # for tag requests, should only have max of 1 tag per photo
     tagRequests = []
@@ -161,9 +171,52 @@ def home():
         # jinja loop in home.html loops through index so we need something even if result returns none
         tagRequests.append(cursor.fetchone())
 
+    comments = []
+    for photo in data:
+        query = 'SELECT username, comment, commentTime FROM Commented WHERE photoID = %s ORDER BY commentTime DESC'
+        cursor.execute(query, (photo['photoID']))
+        comments.append(cursor.fetchall())
 
     cursor.close()
-    return render_template('home.html', username=user, posts=data, photoInfo = photoInfo, tagged=tags, liked=likes, tagRequests=tagRequests)
+    return render_template('home.html', username=user, posts=data, photoInfo = photoInfo, tagged=tags, liked=likes, userlike=userlike, tagRequests=tagRequests, comments=comments)
+
+@app.route('/rate', methods=['POST'])
+def rate():
+    user = session['username']
+    photoID = request.form['submitRating']
+    rating = request.form['ratings']
+    cursor = conn.cursor()
+    
+    query = 'INSERT INTO Likes(username, photoID, liketime, rating) VALUES(%s, %s, %s, %s)'
+    cursor.execute(query, (user, photoID, time.strftime('%Y-%m-%d %H:%M:%S'), rating))
+    conn.commit()
+    cursor.close()
+    return redirect(url_for('home'))
+    
+@app.route('/removeRating', methods=['POST'])
+def removeRating():
+    user = session['username']
+    photoID = request.form['removeRating']
+    cursor = conn.cursor()
+    
+    query = 'DELETE FROM Likes WHERE username = %s AND photoID = %s'
+    cursor.execute(query, (user, photoID))
+    conn.commit()
+    cursor.close()
+    return redirect(url_for('home'))
+    
+@app.route('/postComment', methods=['POST'])
+def postComment():
+    user = session['username']
+    photoID = request.form['submitComment']
+    comment = request.form['comment']
+    cursor = conn.cursor()
+    
+    query = 'INSERT INTO Commented(username, photoID, commentTime, comment) VALUES(%s, %s, %s, %s)'
+    cursor.execute(query, (user, photoID, time.strftime('%Y-%m-%d %H:%M:%S'), comment))
+    conn.commit()
+    cursor.close()
+    return redirect(url_for('home'))
 
 @app.route('/tagUser', methods=['GET', 'POST'])
 def tag():
