@@ -12,9 +12,9 @@ app = Flask(__name__)
 
 #Configure MySQL
 conn = pymysql.connect(host='localhost',
-                       port = 8889,
+                       port=3306,
                        user='root',
-                       password='root',
+                       password='',
                        db='Finstagram',
                        charset='utf8mb4',
                        cursorclass=pymysql.cursors.DictCursor)
@@ -501,10 +501,92 @@ def findID():
         error = "This user does not exist"
         return render_template('follows.html',error=error, requests=requests)
 
+# Routes to add friend group
+@app.route('/addGroup')
+def addFriendGroup():
+    user = session['username']
+    return render_template('create_group.html')
+
+# A user creates a Friend Group with a different name than his other groups. Otherwise there is an error
+@app.route('/addGroupAuth', methods=['GET', 'POST'])
+def addFriendGroupAuth():
+    username = session['username']
+    cursor = conn.cursor()
+    group_name = request.form['name']
+    description = request.form['description']
+    query = 'SELECT groupName FROM friendgroup WHERE groupOwner = %s and groupName = %s'
+    cursor.execute(query, (username, group_name))
+    group_list = cursor.fetchone()
+    cursor.close()
+    error = None
+    success = None
+    if (group_list):
+        # If the previous query returns data, then groupName exists with the same groupOwner
+        error = "This group name already exists"
+        return render_template('create_group.html', error = error)
+    else:
+        insert = 'INSERT INTO friendgroup VALUES(%s, %s, %s)'
+        cursor.execute(insert, (username, group_name, description))
+        cursor.close()
+        success = "You have successfully created the group: "
+        return render_template('create_group.html', success = success, groupName = group_name)
 
 
+# Shows list of groups the user owns and gives the option to select add friend to group
+@app.route('/friendgroups')
+def friendgroups():
+    # check that user is logged in
+    user = session['username']
+    cursor = conn.cursor()
+    query = 'SELECT groupName FROM friendgroup WHERE groupOwner = %s'
+    cursor.execute(query, user)
+    groups = cursor.fetchall()
+    cursor.close()
+    return render_template('friendgroups.html', friendgroups = groups, groupOwner = user)
+
+# Adds person to selected group if the friend is not already in the group and person exists
+@app.route('/add_friend_to_group', methods=['GET', 'POST'])
+def add_friend():
+    user = session['username']
+    groupName = request.args['groupName']
+    session['groupName'] = groupName
+    return render_template('addFriendToGroup.html', username = user, groupName =groupName)
 
 
+# Identifies if the username or member being added to group exists in person
+# or if the username is already in the group
+@app.route('/add_friend_to_groupauth', methods=['GET', 'POST'])
+def add_friendauth():
+    owner = session['username']
+    friend = request.form['username']
+    groupName = session['groupName']
+    cursor = conn.cursor()
+    query = 'SELECT username FROM person WHERE username = %s'
+    cursor.execute(query, (friend))
+    friend = cursor.fetchone()
+    cursor.close()
+    error_exists = None
+    error_empty = None
+    if friend:
+        # If found username or person exists
+        cursor = conn.cursor()
+        query = 'SELECT * FROM belongto JOIN friendgroup USING(groupName) WHERE member_username = %s AND belongto.owner_username = %s AND friendgroup.groupOwner = %s AND groupName = %s'
+        cursor.execute(query, (friend, owner, owner, groupName))
+        found_friend = cursor.fetchone()
+        if found_friend:
+            # returns an error message to html page if member already part of the group
+            error_exists = "This username is already a member"
+            return render_template('addFriendToGroup.html', username = owner, groupName = groupName ,error = error_exists)
+        else:
+            insert = 'INSERT INTO belongto VALUES(%s, %s, %s)'
+            cursor.execute(insert, (friend, owner, groupName))
+            conn.commit()
+            cursor.close()
+            return render_template('addFriendToGroup.html')
+    else:
+        #If the person does not exists in the database
+        error_empty = "This user does not exists"
+        return render_template('addFriendToGroup.html', username = owner, groupName = groupName, error = error_empty)
 
 '''
 
