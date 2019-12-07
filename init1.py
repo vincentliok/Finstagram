@@ -517,7 +517,6 @@ def addFriendGroupAuth():
     query = 'SELECT groupName FROM friendgroup WHERE groupOwner = %s and groupName = %s'
     cursor.execute(query, (username, group_name))
     group_list = cursor.fetchone()
-    cursor.close()
     error = None
     success = None
     if (group_list):
