@@ -17,7 +17,8 @@ Please <font color = "red"> check </font>  the group name to confirm.
 		<p class="error"><strong>Try again.</strong><br> {{error}}</p>
 	{% endif %}
     {% if success %}
-		<p class="success"><strong>User added to group.</strong><br> {{success}} {{groupName}}</p>
+		<p class="success"><strong>User added to group.</strong><br> {{success}}.</p><br>
+    <font color="HighlightText">{{member}} is now a member of {{groupName}}!</font>
 	{% endif %}
 </form>
 <br><br>

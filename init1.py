@@ -526,6 +526,8 @@ def addFriendGroupAuth():
     else:
         insert = 'INSERT INTO friendgroup VALUES(%s, %s, %s)'
         cursor.execute(insert, (username, group_name, description))
+        insert2 = 'INSERT INTO belongto VALUES(%s, %s, %s)'
+        cursor.execute(insert2, (username, username, group_name))
         cursor.close()
         success = "You have successfully created the group: "
         return render_template('create_group.html', success = success, groupName = group_name)
@@ -541,13 +543,14 @@ def friendgroups():
     cursor.execute(query, user)
     groups = cursor.fetchall()
     cursor.close()
+    print(groups)
     return render_template('friendgroups.html', friendgroups = groups, groupOwner = user)
 
 # Adds person to selected group if the friend is not already in the group and person exists
 @app.route('/add_friend_to_group', methods=['GET', 'POST'])
 def add_friend():
     user = session['username']
-    groupName = request.args['groupName']
+    groupName = request.form['groupName']
     session['groupName'] = groupName
     return render_template('addFriendToGroup.html', username = user, groupName =groupName)
 
@@ -563,14 +566,15 @@ def add_friendauth():
     query = 'SELECT username FROM person WHERE username = %s'
     cursor.execute(query, (friend))
     friend = cursor.fetchone()
-    cursor.close()
+    if friend:
+        member = friend['username']
     error_exists = None
     error_empty = None
+    success = None
     if friend:
         # If found username or person exists
-        cursor = conn.cursor()
-        query = 'SELECT * FROM belongto JOIN friendgroup USING(groupName) WHERE member_username = %s AND belongto.owner_username = %s AND friendgroup.groupOwner = %s AND groupName = %s'
-        cursor.execute(query, (friend, owner, owner, groupName))
+        query = 'SELECT member_username FROM belongto JOIN friendgroup USING(groupName) WHERE member_username = %s AND belongto.owner_username = %s AND friendgroup.groupOwner = %s AND groupName = %s'
+        cursor.execute(query, (member, owner, owner, groupName))
         found_friend = cursor.fetchone()
         if found_friend:
             # returns an error message to html page if member already part of the group
@@ -578,10 +582,11 @@ def add_friendauth():
             return render_template('addFriendToGroup.html', username = owner, groupName = groupName ,error = error_exists)
         else:
             insert = 'INSERT INTO belongto VALUES(%s, %s, %s)'
-            cursor.execute(insert, (friend, owner, groupName))
+            cursor.execute(insert, (member, owner, groupName))
             conn.commit()
             cursor.close()
-            return render_template('addFriendToGroup.html')
+            success = "The user has successfully been added to the group"
+            return render_template('addFriendToGroup.html', username = owner, groupName = groupName, success = success, member = member)
     else:
         #If the person does not exists in the database
         error_empty = "This user does not exists"

@@ -14,7 +14,7 @@
 </style>
 
 Group Owner: {{groupOwner}}
-<form action="/add_friend_to_group" method="GET">
+<form action="/add_friend_to_group" method="POST">
     <br> Select a group that you would like to add members to:
     <br>
 <table>
@@ -24,7 +24,7 @@ Group Owner: {{groupOwner}}
 {% for line in friendgroups %}
     <tr>
         <td>{{line.groupName}}</td>
-        <td><input type="radio" name="groupName" value={{line.groupName}}> Add Members To {{line.groupName}} <p> &#9824 &#9824</p></input>
+        <td><input type="radio" name="groupName" value="{{line.groupName}}"> Add Members To {{line.groupName}} <p> &#9824 &#9824</p></input>
 	</td>>
     </tr>
 {% endfor %}
