@@ -12,6 +12,12 @@
                 <label for="followerVisible">Post to all followers?</label>
                 <input type="radio" name="followerVisible" checked value=1> Yes </input>
                 <input type="radio" name="followerVisible" value=0> No </input>
+                <select name="friendsGroup">
+                    {% for group in groups %}
+                        <option value=1>{{</option>
+                    {% endfor %}
+
+                </select>
                 <br>
                 <br>
                 <label for="Caption">Image Caption</label>

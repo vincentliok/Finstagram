@@ -12,9 +12,9 @@ app = Flask(__name__)
 
 #Configure MySQL
 conn = pymysql.connect(host='localhost',
-                       port=3306,
+                       port=8889,
                        user='root',
-                       password='',
+                       password='root',
                        db='Finstagram',
                        charset='utf8mb4',
                        cursorclass=pymysql.cursors.DictCursor)
@@ -88,7 +88,12 @@ def hello():
 #code for uploading image
 @app.route('/upload', methods=["GET"])
 def upload():
-    return render_template("upload.html")
+    user = session['username']
+    cursor = conn.cursor()
+    query = 'SELECT * FROM BelongTo WHERE member_username = %s'
+    cursor.execute(query, (user))
+    groups = cursor.fetchall()
+    return render_template("upload.html" , groups = groups)
 
 @app.route("/uploadImage", methods=["POST"])
 def upload_image():
@@ -96,7 +101,6 @@ def upload_image():
         image_file = request.files.get("imageToUpload", "")
         image_name = image_file.filename
         filepath = os.path.join(IMAGES_DIR, image_name)
-        print(filepath)
         image_file.save(filepath)
         query = "INSERT INTO Photo(postingdate, filepath, photoPoster, allFollowers, caption) VALUES (%s, %s, %s, %s, %s)"
         cursor = conn.cursor()
@@ -256,11 +260,11 @@ def tag():
                 message = 'Request is still pending from user'
 
 
-                # queries to load homepage with loaded photos
-                user, data, photoInfo, tags, likes, userlike, tagRequests, comments = loadHome()
-                cursor.close()
-                return render_template('home.html', username=user, posts=data, photoInfo=photoInfo, tagged=tags,
-                                       liked=likes, tagRequests=tagRequests, comments=comments, photoID=photoID,userlike=userlike,message=message)
+            # queries to load homepage with loaded photos
+            user, data, photoInfo, tags, likes, userlike, tagRequests, comments = loadHome()
+            cursor.close()
+            return render_template('home.html', username=user, posts=data, photoInfo=photoInfo, tagged=tags,
+                                   liked=likes, tagRequests=tagRequests, comments=comments, photoID=photoID,userlike=userlike,message=message)
 
         #user not already tagged
         else:
