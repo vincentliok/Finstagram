@@ -636,7 +636,6 @@ def show_posts():
 @app.route('/logout')
 def logout():
     session.pop('username')
-    session.pop('groupName')
     return redirect('/')
         
 app.secret_key = 'some key that you will never guess'
