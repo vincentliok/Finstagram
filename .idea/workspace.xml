@@ -1,11 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="60cba7c8-de03-4435-9b42-b6eb9335f3c4" name="Default" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/init1.py" beforeDir="false" afterPath="$PROJECT_DIR$/init1.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/templates/friendgroups.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/friendgroups.html" afterDir="false" />
-    </list>
+    <list default="true" id="60cba7c8-de03-4435-9b42-b6eb9335f3c4" name="Default" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -97,7 +93,7 @@
       <workItem from="1575602539760" duration="35583000" />
       <workItem from="1575764146099" duration="82000" />
       <workItem from="1575865611183" duration="1897000" />
-      <workItem from="1575934064462" duration="912000" />
+      <workItem from="1575934064462" duration="1313000" />
     </task>
     <servers />
   </component>
