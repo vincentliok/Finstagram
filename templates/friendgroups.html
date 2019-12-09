@@ -30,9 +30,14 @@ Group Owner: {{groupOwner}}
 {% endfor %}
 
 
+
 </table> <br>
 <input type="submit" value="Select">
     <br><br><br>
+
+    {% if error %}
+        <p class="error"><strong>Sorry.</strong><br> {{error}}</p>
+    {% endif %}
 <a href="/addGroup">Create New Group</a>
 <br>
     <a href="/home">Go Back Home</a>

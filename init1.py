@@ -12,9 +12,9 @@ app = Flask(__name__)
 
 #Configure MySQL
 conn = pymysql.connect(host='localhost',
-                       port=8889,
+                       port=3306,
                        user='root',
-                       password='root',
+                       password='',
                        db='Finstagram',
                        charset='utf8mb4',
                        cursorclass=pymysql.cursors.DictCursor)
@@ -582,6 +582,15 @@ def friendgroups():
 # Adds person to selected group if the friend is not already in the group and person exists
 @app.route('/add_friend_to_group', methods=['GET', 'POST'])
 def add_friend():
+    user = session['username']
+    cursor = conn.cursor()
+    query = 'SELECT groupName FROM friendgroup WHERE groupOwner = %s'
+    cursor.execute(query, user)
+    groupName = cursor.fetchone()
+    error = None
+    if not groupName:
+        error = 'You have no friend groups to select from. Please create a Friend Group before adding members.'
+        return render_template('friendgroups.html', error = error, groupOwner = user)
     user = session['username']
     groupName = request.form['groupName']
     session['groupName'] = groupName
