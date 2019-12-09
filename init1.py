@@ -104,17 +104,46 @@ def upload_image():
         image_file.save(filepath)
         query = "INSERT INTO Photo(postingdate, filepath, photoPoster, allFollowers, caption) VALUES (%s, %s, %s, %s, %s)"
         cursor = conn.cursor()
-        print((time.strftime('%Y-%m-%d %H:%M:%S'), image_name, session['username']))
         followerVisible = int(request.form['followerVisible'])
+        group = request.form['group']
+        group = group.split("-----%%-----")
+        owner = group[0]
+        groupName = group[1]
         caption = request.form['caption']
         cursor.execute(query, (time.strftime('%Y-%m-%d %H:%M:%S'), image_name, session['username'], followerVisible, caption))
+
+        # get the photoID that was just recently inserted
+        query = "SELECT Max(PhotoID) FROM Photo"
+        cursor.execute(query)
+        count = cursor.fetchone()
+        count = count['Max(PhotoID)']
+
+        # insert into shared with
+        query = "INSERT INTO SharedWith(groupOwner, groupName, photoID) VALUES (%s, %s, %s)"
+        cursor.execute(query, (owner, groupName, count))
         conn.commit()
         cursor.close()
         message = "Image has been successfully uploaded."
-        return render_template("upload.html", message=message)
+
+
+        # load gorup query
+        user = session['username']
+        cursor = conn.cursor()
+        query = 'SELECT * FROM BelongTo WHERE member_username = %s'
+        cursor.execute(query, (user))
+        groups = cursor.fetchall()
+
+
+        return render_template("upload.html", message=message, groups = groups)
     else:
         message = "Failed to upload image."
-        return render_template("upload.html", message=message)
+        # load gorup query
+        user = session['username']
+        cursor = conn.cursor()
+        query = 'SELECT * FROM BelongTo WHERE member_username = %s'
+        cursor.execute(query, (user))
+        groups = cursor.fetchall()
+        return render_template("upload.html", message=message, groups = groups)
 
 
 #Define route for login

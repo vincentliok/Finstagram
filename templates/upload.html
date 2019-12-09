@@ -10,11 +10,11 @@
                 <br>
                 <br>
                 <label for="followerVisible">Post to all followers?</label>
-                <input type="radio" name="followerVisible" checked value=1> Yes </input>
-                <input type="radio" name="followerVisible" value=0> No </input>
-                <select name="friendsGroup">
+                <input type="radio" onclick="yesnoCheck();" name="followerVisible" checked value=1> Yes </input>
+                <input id = "noCheck" onclick="yesnoCheck();" type="radio" name="followerVisible" value=0> No </input>
+                <select id = "ifNo" style="display:none" name="group">
                     {% for group in groups %}
-                        <option value=1>{{</option>
+                        <option value = "{{group['owner_username']}}-----%%-----{{group['groupName']}}" > {{group['owner_username']}} : {{group['groupName']}}</option>
                     {% endfor %}
 
                 </select>
@@ -33,5 +33,17 @@
         {% endif %}
         <br/>
         <a href="/home">Go back</a>
+
+        <script>
+        function yesnoCheck() {
+            if (document.getElementById('noCheck').checked) {
+                document.getElementById('ifNo').style.display = 'block';
+            }
+            else document.getElementById('ifNo').style.display = 'none';
+        }
+        </script>
+
+
     </body>
 </html>
+
