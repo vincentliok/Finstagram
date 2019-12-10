@@ -12,9 +12,9 @@ app = Flask(__name__)
 
 #Configure MySQL
 conn = pymysql.connect(host='localhost',
-                       port=3306,
+                       port=8889,
                        user='root',
-                       password='',
+                       password='root',
                        db='Finstagram',
                        charset='utf8mb4',
                        cursorclass=pymysql.cursors.DictCursor)
@@ -105,28 +105,34 @@ def upload_image():
         query = "INSERT INTO Photo(postingdate, filepath, photoPoster, allFollowers, caption) VALUES (%s, %s, %s, %s, %s)"
         cursor = conn.cursor()
         followerVisible = int(request.form['followerVisible'])
-        group = request.form['group']
-        group = group.split("-----%%-----")
-        owner = group[0]
-        groupName = group[1]
         caption = request.form['caption']
         cursor.execute(query, (time.strftime('%Y-%m-%d %H:%M:%S'), image_name, session['username'], followerVisible, caption))
-
-        # get the photoID that was just recently inserted
-        query = "SELECT Max(PhotoID) FROM Photo"
-        cursor.execute(query)
-        count = cursor.fetchone()
-        count = count['Max(PhotoID)']
-
-        # insert into shared with
-        query = "INSERT INTO SharedWith(groupOwner, groupName, photoID) VALUES (%s, %s, %s)"
-        cursor.execute(query, (owner, groupName, count))
         conn.commit()
+
+        try:
+            # get the photoID that was just recently inserted
+            query = "SELECT Max(PhotoID) FROM Photo"
+            cursor.execute(query)
+            count = cursor.fetchone()
+            count = count['Max(PhotoID)']
+
+            group = request.form['group']
+            group = group.split("-----%%-----")
+            owner = group[0]
+            groupName = group[1]
+            # insert into shared with
+            query = "INSERT INTO SharedWith(groupOwner, groupName, photoID) VALUES (%s, %s, %s)"
+            cursor.execute(query, (owner, groupName, count))
+            conn.commit()
+        except:
+            pass
+
+
         cursor.close()
         message = "Image has been successfully uploaded."
 
 
-        # load gorup query
+        # load group query
         user = session['username']
         cursor = conn.cursor()
         query = 'SELECT * FROM BelongTo WHERE member_username = %s'
@@ -297,7 +303,6 @@ def tag():
 
         #user not already tagged
         else:
-            print(username)
             #if it is self-tag, simply insert with tagstatus = 1
             if username == user:
                 query = 'INSERT INTO Tagged(username, photoID ,tagstatus) VALUES (%s, %s, %s)'
@@ -313,7 +318,6 @@ def tag():
                                        liked=likes, tagRequests=tagRequests,comments=comments, photoID=photoID,userlike=userlike,message=message)
 
             #if not self-tag, check if user can see the photoID
-
             #get all visible photos the searched user can see
             query = '(SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo WHERE photoPoster = %s) UNION (SELECT photoID, photoPoster, filepath, postingdate, caption FROM Photo NATURAL JOIN SharedWith NATURAL JOIN BelongTo WHERE member_username = %s) UNION (SELECT photoID, photoPoster,filepath, postingdate, caption FROM Photo JOIN Follow ON photoPoster = username_followed WHERE username_follower = %s AND followstatus = 1) ORDER BY postingdate DESC'
             cursor.execute(query, (username, username, username))
@@ -336,15 +340,16 @@ def tag():
                 return render_template('home.html', username=user, posts=data, photoInfo=photoInfo, tagged=tags,
                                        liked=likes, tagRequests=tagRequests,comments=comments, photoID=photoID,userlike=userlike,message=message)
 
-    #user cant see the image.Thus error
-    else:
-        message = "Invalid tag request"
-        # queries to load homepage with loaded photos
-        user, data, photoInfo, tags, likes, userlike, tagRequests, comments = loadHome()
-        cursor.close()
-        return render_template('home.html', username=user, posts=data, photoInfo=photoInfo, tagged=tags,
-                               liked=likes, tagRequests=tagRequests, comments=comments, photoID=photoID,
-                               userlike=userlike, message=message)
+            #user cant see the image.Thus error
+            else:
+                message = "Invalid tag request"
+                # queries to load homepage with loaded photos
+                user, data, photoInfo, tags, likes, userlike, tagRequests, comments = loadHome()
+                cursor.close()
+
+                return render_template('home.html', username=user, posts=data, photoInfo=photoInfo, tagged=tags,
+                                       liked=likes, tagRequests=tagRequests, comments=comments, photoID=photoID,
+                                       userlike=userlike, message=message)
 
 
 
@@ -576,7 +581,6 @@ def friendgroups():
     cursor.execute(query, user)
     groups = cursor.fetchall()
     cursor.close()
-    print(groups)
     return render_template('friendgroups.html', friendgroups = groups, groupOwner = user)
 
 # Adds person to selected group if the friend is not already in the group and person exists
